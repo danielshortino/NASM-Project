@@ -1,0 +1,212 @@
+;DANIEL SHORTINO 
+;CSM 145 32695
+;9 APR 2023
+section .data
+newline: db 10 ;new line character     
+
+section .bss
+;saving the register values 4 bytes each
+inputIndex: resb 4
+outputIndex: resb 4
+tempIndex: resb 4
+shouldPrint: resb 4
+
+;100 bytes reserved for input and output strings
+input: resb 100 
+output: resb 100
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; START OF CODE ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+section .text
+global _start
+_start:    
+
+;read 100 bytes of input   
+mov ecx,input
+mov edx,100
+call read
+
+loop:    
+mov eax, 0
+mov [shouldPrint], eax ;initialize to 0. if shouldPrint=1, print line. if shouldPrint=0, don't print line 
+    
+;ebx/edx used for input/output index
+mov ebx, [inputIndex]
+mov edx, [outputIndex]
+
+;when the character is . the string is done
+cmp byte [input+ebx], '.'
+je end
+
+;when the character is A add the next byte to the string
+cmp byte [input+ebx], 'A'
+je add
+        
+;when the character is D delete all occurances of the next byte
+cmp byte [input+ebx], 'D'
+je delete
+        
+;when the character is R replace all occurances
+cmp byte [input+ebx], 'R'
+je replace
+
+;add label
+add:
+;getting the index of next character after 'A' from input
+mov ebx, [inputIndex]
+inc ebx
+mov edx, [outputIndex]
+            
+;saving the next character after 'A' in output String
+mov cl, [input+ebx]
+mov byte [output+edx], cl
+
+;incrementing index of output string
+inc edx
+mov [outputIndex], edx
+mov [inputIndex], ebx            
+mov byte [shouldPrint], 1 ;shouldPrint = true, jump to next to print iteration
+jmp print_line
+        
+;getting the index of next character after 'D' in input string
+delete:
+mov eax, 0            
+mov ebx, [inputIndex]
+inc ebx
+mov [inputIndex], ebx
+            
+;getting the character in cl that needs to be deleted
+mov cl, [input+ebx]
+
+innerloop:
+;check if current character of output string is equal removed character
+mov ch, [output+eax]
+cmp ch, cl
+jne check
+                
+mov byte [shouldPrint], 1 ;set true if char exists
+mov [tempIndex], eax
+                
+call removeCharacter
+
+mov eax, [tempIndex]
+dec eax                
+mov edx, [outputIndex]
+dec edx
+mov [outputIndex], edx
+                
+check:
+inc eax
+cmp byte [output+eax], 0
+jne innerloop
+            
+jmp print_line
+
+;replace the all occurances of next character with next of next character in the string and then jump to next label       
+replace:
+;eax = 0 or index of ouput string           
+mov byte [shouldPrint], 1
+            
+mov eax, 0
+          
+;getting the index of next character after 'R' in input String
+          
+mov ebx, [inputIndex]
+inc ebx
+                      
+;getting the character in cl that needs to be replaced
+mov cl, [input+ebx]
+            
+inc ebx
+mov [inputIndex], ebx         
+;getting the character in ch that needs to replace the previous character
+            
+mov ch, [input+ebx]
+
+innerloop2:              
+;check if current character of output string is equal removed character
+         
+cmp byte [output+eax], cl
+jne check2
+                
+mov byte [output+eax], ch
+ 
+check2:
+inc eax
+cmp byte [output+eax], 0
+jne innerloop2
+            
+jmp print_line
+                
+print_line:
+cmp byte [shouldPrint], 1 ;if shouldPrint is true/1, print
+jne dontPrint
+;displaying output
+        
+;print up to 100 bytes of output
+mov ecx,output
+mov edx,100
+call write
+
+;print new line
+mov ecx,newline
+mov edx,1
+call write
+        
+dontPrint:
+;loop again to check the next byte
+;increamenting index of input string, which is ebx
+mov ebx, [inputIndex]
+inc ebx
+mov [inputIndex], ebx
+     
+jmp loop
+    
+removeCharacter:
+mov ebx, eax
+inc ebx
+
+aloop:        
+;check if the next character is null character, if so then jump to adone label
+cmp byte [output+ebx], 0
+je adone
+
+;else cl = output[currentIndex]
+;and ch = output[nextIndex]
+mov cl, byte [output+eax]
+mov ch, byte [output+ebx]
+
+;output[currentIndex] = ch
+;output[nextIndex] = cl
+mov byte [output+eax], ch
+mov byte [output+ebx], cl
+
+;currentIndex +1
+;nextIndex +1
+inc eax
+inc ebx
+
+;jump to aloop label
+jmp aloop
+        
+adone:   
+;replace character with null       
+mov byte [output+eax], 0
+ret
+
+;read/write functions
+read:
+mov eax,3
+mov ebx,0
+int 80h
+ret
+write:
+mov eax,4
+mov ebx,1
+int 80h
+ret
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; SYSTEM EXIT ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+end:            
+mov eax,1
+mov ebx,0
+int 80h
